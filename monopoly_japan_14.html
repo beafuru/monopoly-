@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>日本版モノポリー 期待値計算ツール</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f4f0;color:#1a1a1a;font-size:14px;line-height:1.6;}
+h1{font-size:18px;font-weight:600;padding:16px 20px;background:#fff;border-bottom:1px solid #e0ddd5;position:sticky;top:0;z-index:10;}
+.container{max-width:900px;margin:0 auto;padding:16px;}
+label{font-size:12px;color:#666;display:block;margin-bottom:3px;}
+select,input[type=number]{width:100%;padding:6px 9px;font-size:13px;border:1px solid #d0cec5;border-radius:7px;background:#fff;color:#1a1a1a;outline:none;}
+select:focus,input:focus{border-color:#888;}
+.card{background:#fff;border:1px solid #e0ddd5;border-radius:12px;padding:16px 20px;margin-bottom:12px;}
+.mcard{background:#f5f4f0;border-radius:8px;padding:10px 14px;margin-bottom:6px;}
+.mcard.highlight{border:1.5px solid #aaa;}
+.mcard.ok{border:1.5px solid #1a7a50;background:#f0faf5;}
+.mcard.ng{border:1.5px solid #c0392b;background:#fdf0f0;}
+.ml{font-size:11px;color:#888;margin-bottom:3px;}
+.mv{font-size:18px;font-weight:600;}
+.gc{color:#1a7a50;}.rc{color:#c0392b;}.bc{color:#1565c0;}
+table{width:100%;border-collapse:collapse;font-size:12px;}
+th{text-align:left;padding:6px 8px;color:#888;font-weight:400;border-bottom:1px solid #e8e5dd;white-space:nowrap;}
+td{padding:6px 8px;border-bottom:1px solid #f0ede5;color:#1a1a1a;}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:#faf9f5;}
+tr.best-row td{background:#f0faf5;}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:middle;flex-shrink:0;}
+.pdot{width:12px;height:12px;border-radius:50%;display:inline-block;margin-right:6px;vertical-align:middle;flex-shrink:0;}
+.grp-label{font-size:11px;color:#aaa;margin:12px 0 4px;font-weight:600;letter-spacing:.05em;}
+.btn{font-size:14px;padding:10px 28px;border:none;border-radius:8px;background:#1a1a1a;color:#fff;cursor:pointer;font-weight:500;}
+.btn:hover{background:#333;}
+.player-head{display:flex;align-items:center;gap:10px;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid #f0ede5;flex-wrap:wrap;}
+.player-title{font-size:14px;font-weight:600;}
+.pos-badge{font-size:11px;color:#888;background:#f0ede5;padding:2px 8px;border-radius:12px;}
+.prop-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #f5f3ee;}
+.prop-row:last-child{border-bottom:none;}
+.prop-name{flex:1;font-size:12px;display:flex;align-items:center;gap:4px;min-width:0;}
+.prop-select{width:130px;flex-shrink:0;font-size:11px;padding:4px 6px;}
+.prob-bar{display:inline-block;height:5px;border-radius:3px;background:#e8e5dd;vertical-align:middle;width:50px;}
+.prob-fill{height:5px;border-radius:3px;background:#1a7a50;}
+.col-header{display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid #eee;margin-bottom:4px;}
+.badge-ok{display:inline-block;font-size:11px;font-weight:600;padding:2px 10px;border-radius:12px;background:#1a7a50;color:#fff;}
+.badge-ng{display:inline-block;font-size:11px;font-weight:600;padding:2px 10px;border-radius:12px;background:#c0392b;color:#fff;}
+.cash-input-row{display:flex;align-items:flex-end;gap:10px;margin-top:10px;}
+.cash-input-row>div{flex:1;}
+.build-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px;}
+.build-table th{background:#f5f4f0;padding:6px 8px;text-align:left;font-weight:500;font-size:11px;color:#666;border-bottom:1px solid #e0ddd5;}
+.build-table td{padding:6px 8px;border-bottom:1px solid #f0ede5;}
+.build-table tr.best-row td{background:#f0faf5;font-weight:500;}
+.build-table tr:last-child td{border-bottom:none;}
+
+/* グリッドクラス */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.g3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;}
+.scroll-x{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+
+/* ── スマホ対応 ───────────────────────── */
+@media(max-width:640px){
+  h1{font-size:15px;padding:12px 14px;}
+  .container{padding:8px;}
+  .card{padding:12px 12px;margin-bottom:8px;}
+  .mcard{padding:8px 10px;}
+  .mv{font-size:15px;}
+  .ml{font-size:10px;}
+  .btn{width:100%;padding:12px;font-size:15px;}
+  .g2{grid-template-columns:1fr;}
+  .g3{grid-template-columns:1fr;}
+  .prop-select{width:95px;font-size:10px;padding:3px 4px;}
+  .col-header span:last-child{width:95px !important;}
+  .player-head{gap:6px;}
+  .player-title{font-size:13px;}
+  .pos-badge{font-size:10px;padding:2px 6px;}
+  table{font-size:11px;}
+  th,td{padding:4px 5px;white-space:nowrap;}
+  .grp-label{margin:8px 0 3px;}
+  .prop-row{gap:6px;padding:4px 0;}
+}
+</style>
+</head>
+<body>
+<h1>🎲 日本版モノポリー 期待値計算ツール</h1>
+<div class="container">
+
+<div class="card">
+  <p style="font-size:13px;font-weight:600;margin-bottom:12px;">基本設定</p>
+  <div style="max-width:200px;">
+    <label>プレイヤー人数</label>
+    <select id="numP" onchange="initPlayers()">
+      <option value="2">2人</option>
+      <option value="3" selected>3人</option>
+      <option value="4">4人</option>
+      <option value="5">5人</option>
+      <option value="6">6人</option>
+    </select>
+  </div>
+</div>
+
+<div id="playerSetup"></div>
+
+<div style="text-align:center;margin:16px 0;">
+  <button class="btn" onclick="calc()">📊 期待値を計算する</button>
+</div>
+
+<div id="results"></div>
+
+<div style="font-size:11px;color:#aaa;text-align:center;margin-top:20px;padding-bottom:20px;">
+  停止確率：1周以内にそのマスにピッタリ止まる確率（サイコロ2個、ピンポイント着地のみ）。<br>
+  税：所得税200万（4番）・物品税100万（38番）含む。誰も所有していない土地は変動費に含まない。単位：万円
+</div>
+</div>
+
+<script>
+const PCOLORS=['#2471a3','#c0392b','#1a7a50','#d35400','#7d3c98','#b7950b'];
+const PNAMES=['プレイヤーA','プレイヤーB','プレイヤーC','プレイヤーD','プレイヤーE','プレイヤーF'];
+const CAT_COLOR={
+  '茶':'#6d4c41','水色':'#0288d1','ピンク':'#d81b60','オレンジ':'#e65100',
+  '赤':'#c62828','黄':'#c79a00','緑':'#2e7d32','濃青':'#1565c0',
+  '駅':'#555555','公共':'#888888','税':'#999999'
+};
+const BUILD_COST={'茶':50,'水色':50,'ピンク':100,'オレンジ':100,'赤':150,'黄':150,'緑':200,'濃青':200};
+const HOUSE_LABELS=['0軒（素地）','家1軒','家2軒','家3軒','家4軒','ホテル'];
+
+const COLOR_PROPS=[
+  {pos:1, name:'八王子', cat:'茶',    rents:[2,10,30,90,160,250]},
+  {pos:3, name:'立川',   cat:'茶',    rents:[4,20,60,180,320,450]},
+  {pos:6, name:'四ツ谷', cat:'水色',  rents:[6,30,90,270,400,550]},
+  {pos:8, name:'代々木', cat:'水色',  rents:[6,30,90,270,400,550]},
+  {pos:9, name:'市ヶ谷', cat:'水色',  rents:[8,40,100,300,450,600]},
+  {pos:11,name:'秋葉原', cat:'ピンク',rents:[10,50,150,450,625,750]},
+  {pos:13,name:'上野',   cat:'ピンク',rents:[10,50,150,450,625,750]},
+  {pos:14,name:'池袋',   cat:'ピンク',rents:[12,60,180,500,700,900]},
+  {pos:16,name:'お台場', cat:'オレンジ',rents:[14,70,200,550,750,950]},
+  {pos:18,name:'日比谷', cat:'オレンジ',rents:[14,70,200,550,750,950]},
+  {pos:19,name:'新橋',   cat:'オレンジ',rents:[16,80,220,600,800,1000]},
+  {pos:21,name:'恵比寿', cat:'赤',    rents:[18,90,250,700,875,1050]},
+  {pos:23,name:'原宿',   cat:'赤',    rents:[18,90,250,700,875,1050]},
+  {pos:24,name:'表参道', cat:'赤',    rents:[20,100,300,750,925,1100]},
+  {pos:26,name:'赤坂',   cat:'黄',    rents:[22,110,330,800,975,1150]},
+  {pos:27,name:'六本木', cat:'黄',    rents:[22,110,330,800,975,1150]},
+  {pos:29,name:'虎ノ門', cat:'黄',    rents:[24,120,360,850,1025,1200]},
+  {pos:31,name:'有楽町', cat:'緑',    rents:[26,130,390,900,1100,1275]},
+  {pos:32,name:'日本橋', cat:'緑',    rents:[26,130,390,900,1100,1275]},
+  {pos:34,name:'大手町', cat:'緑',    rents:[28,150,450,1000,1200,1400]},
+  {pos:37,name:'丸の内', cat:'濃青',  rents:[35,175,500,1100,1300,1500]},
+  {pos:39,name:'銀座',   cat:'濃青',  rents:[50,200,600,1400,1700,2000]},
+];
+const STATION_PROPS=[
+  {pos:5, name:'駅①（5番）', cat:'駅',rents:[25,50,100,200]},
+  {pos:15,name:'駅②（15番）',cat:'駅',rents:[25,50,100,200]},
+  {pos:25,name:'駅③（25番）',cat:'駅',rents:[25,50,100,200]},
+  {pos:35,name:'駅④（35番）',cat:'駅',rents:[25,50,100,200]},
+];
+const UTIL_PROPS=[
+  {pos:12,name:'電気会社（12番）',cat:'公共',isUtility:true},
+  {pos:28,name:'水道会社（28番）',cat:'公共',isUtility:true},
+];
+const ALL_PROPS=[...COLOR_PROPS,...STATION_PROPS,...UTIL_PROPS];
+const TAX=[
+  {pos:4, name:'所得税',penalty:200,cat:'税'},
+  {pos:38,name:'物品税',penalty:100,cat:'税'},
+];
+
+const DICE={};
+for(let i=2;i<=12;i++) DICE[i]=0;
+for(let a=1;a<=6;a++) for(let b=1;b<=6;b++) DICE[a+b]+=1/36;
+
+function probHitInLap(fromPos,targetPos){
+  const BOARD=40;
+  const dist=((targetPos-fromPos-1+BOARD)%BOARD)+1;
+  const avoid=new Array(BOARD+1).fill(0);
+  for(let s=BOARD-1;s>=0;s--){
+    let p=0;
+    for(let d=2;d<=12;d++){
+      const ns=s+d;
+      if(ns===dist) p+=0;
+      else if(ns>=BOARD) p+=DICE[d]*1;
+      else p+=DICE[d]*avoid[ns];
+    }
+    avoid[s]=p;
+  }
+  return 1-avoid[0];
+}
+
+function getPropChecked(pi,pos){
+  const cb=document.querySelector(`input.prop-cb[data-pi="${pi}"][data-pos="${pos}"]`);
+  return cb&&cb.checked;
+}
+function getPropLevel(pi,pos){
+  const sel=document.querySelector(`select.prop-hl[data-pi="${pi}"][data-pos="${pos}"]`);
+  return sel?parseInt(sel.value):0;
+}
+function getOwnedProps(pi){return ALL_PROPS.filter(p=>getPropChecked(pi,p.pos));}
+function getStCount(pi){return STATION_PROPS.filter(p=>getPropChecked(pi,p.pos)).length;}
+function getUtilCount(pi){return UTIL_PROPS.filter(p=>getPropChecked(pi,p.pos)).length;}
+
+function getRentByLevel(p,pi,hl){
+  if(p.isUtility) return getUtilCount(pi)>=2?70:28;
+  if(p.cat==='駅') return p.rents[Math.min(Math.max(getStCount(pi)-1,0),3)];
+  return p.rents[Math.min(hl,5)];
+}
+function getRent(p,pi){return getRentByLevel(p,pi,getPropLevel(pi,p.pos));}
+
+function makePropRow(pi,p){
+  const col=CAT_COLOR[p.cat]||'#999';
+  const isColor=!!p.rents&&p.cat!=='駅'&&!p.isUtility;
+  const hlOpts=isColor?HOUSE_LABELS.map((l,i)=>`<option value="${i}">${l}</option>`).join(''):'';
+  const hlSel=isColor
+    ?`<select class="prop-select prop-hl" data-pi="${pi}" data-pos="${p.pos}" onchange="calc()" disabled>${hlOpts}</select>`
+    :`<span style="font-size:11px;color:#ccc;width:130px;display:inline-block;text-align:center;">—</span>`;
+  return `<div class="prop-row">
+    <input type="checkbox" class="prop-cb" data-pi="${pi}" data-pos="${p.pos}" onchange="toggleProp(${pi},${p.pos});calc()">
+    <div class="prop-name">
+      <span class="dot" style="background:${col}"></span>
+      <span>${p.name}</span>
+      <span style="font-size:10px;color:#ccc;">${p.pos}番</span>
+    </div>
+    ${hlSel}
+  </div>`;
+}
+
+function toggleProp(pi,pos){
+  const cb=document.querySelector(`input.prop-cb[data-pi="${pi}"][data-pos="${pos}"]`);
+  const sel=document.querySelector(`select.prop-hl[data-pi="${pi}"][data-pos="${pos}"]`);
+  if(sel){sel.disabled=!cb.checked;if(!cb.checked)sel.value='0';}
+}
+
+let numP=3;
+
+function initPlayers(){
+  numP=parseInt(document.getElementById('numP').value);
+  const el=document.getElementById('playerSetup');
+  const defaultPos=[5,12,20,28,33,38];
+  let setupHtml='';
+  for(let i=0;i<numP;i++){
+    const c=PCOLORS[i];
+    const colorRows=COLOR_PROPS.map(p=>makePropRow(i,p)).join('');
+    const stRows=STATION_PROPS.map(p=>makePropRow(i,p)).join('');
+    const utRows=UTIL_PROPS.map(p=>makePropRow(i,p)).join('');
+    setupHtml+=`
+    <div class="card">
+      <div class="player-head">
+        <span class="pdot" style="background:${c}"></span>
+        <span class="player-title">${PNAMES[i]}</span>
+      </div>
+      <div class="g2" style="margin-bottom:14px;">
+        <div>
+          <label>現在位置（GOから何マス　0=GOマス・1〜39）</label>
+          <input type="number" id="pos_${i}" min="0" max="39" value="${defaultPos[i]||5}" onchange="calc()"/>
+        </div>
+        <div>
+          <label>交渉後の手持ちキャッシュ（万円）</label>
+          <input type="number" id="cash_${i}" min="0" value="1000" onchange="calc()"/>
+        </div>
+      </div>
+      <div class="col-header">
+        <span style="width:15px;"></span>
+        <span style="flex:1;font-size:11px;color:#aaa;font-weight:600;">物件名</span>
+        <span style="width:130px;flex-shrink:0;font-size:11px;color:#aaa;font-weight:600;">建設状況</span>
+      </div>
+      <div class="grp-label">色物件</div>${colorRows}
+      <div class="grp-label">駅（チェックした数で家賃が自動計算）</div>${stRows}
+      <div class="grp-label">公共事業</div>${utRows}
+    </div>`;
+  }
+  el.innerHTML=setupHtml;
+  calc();
+}
+
+// 変動費を指定hl（建設状況）で計算
+function calcVarCost(pi, positions, owned, hlOverride){
+  // hlOverride: {pos: level} で各物件の建設状況を上書き
+  let varCost=0;
+  const varDetail=[];
+  for(let i=0;i<numP;i++){
+    if(i===pi) continue;
+    owned[i].forEach(p=>{
+      const prob=probHitInLap(positions[pi],p.pos);
+      if(prob<0.00001) return;
+      const rent=getRent(p,i);
+      const cost=prob*rent;
+      varCost+=cost;
+      varDetail.push({name:p.name,pos:p.pos,cat:p.cat,prob,rent,cost,ownerIdx:i});
+    });
+  }
+  TAX.forEach(t=>{
+    const prob=probHitInLap(positions[pi],t.pos);
+    if(prob<0.00001) return;
+    const cost=prob*t.penalty;
+    varCost+=cost;
+    varDetail.push({name:t.name,pos:t.pos,cat:'税',prob,rent:t.penalty,cost,ownerIdx:-1});
+  });
+  return {varCost,varDetail};
+}
+
+// 指定建設レベルでの期待収入を計算（全物件を同じhlにする）
+function calcRevAtLevel(pi, positions, ownedProps, hl){
+  let rev=200; // GO通過ボーナス
+  const detail={};
+  for(let j=0;j<numP;j++){
+    if(j===pi) continue;
+    ownedProps.forEach(p=>{
+      const prob=probHitInLap(positions[j],p.pos);
+      const rent=getRentByLevel(p,pi,hl);
+      const contrib=prob*rent;
+      rev+=contrib;
+      detail[p.pos]=(detail[p.pos]||0)+contrib;
+    });
+  }
+  return {rev,detail};
+}
+
+// 指定建設レベルでの建設費合計
+function calcBuildCostAtLevel(ownedProps, hl){
+  let total=0;
+  ownedProps.forEach(p=>{
+    if(BUILD_COST[p.cat]) total+=BUILD_COST[p.cat]*hl;
+  });
+  return total;
+}
+
+function calc(){
+  try{
+  const positions=[];
+  for(let i=0;i<numP;i++){
+    const el=document.getElementById(`pos_${i}`);
+    positions.push(el?parseInt(el.value)||1:1);
+  }
+  const owned=[];
+  for(let i=0;i<numP;i++) owned.push(getOwnedProps(i));
+
+  const res=document.getElementById('results');
+  let html='';
+  const summary=[]; // 全プレイヤーの比較用データ
+
+  for(let i=0;i<numP;i++){
+    const c=PCOLORS[i];
+    const cash=parseInt(document.getElementById(`cash_${i}`)?.value)||0;
+    const myProps=owned[i];
+
+    // 現在設定での収支
+    const curHL={}; myProps.forEach(p=>{curHL[p.pos]=getPropLevel(i,p.pos);});
+    let curRev=0, curRevDetail={};
+    for(let j=0;j<numP;j++){
+      if(j===i) continue;
+      myProps.forEach(p=>{
+        const prob=probHitInLap(positions[j],p.pos);
+        const rent=getRent(p,i);
+        const contrib=prob*rent;
+        curRev+=contrib;
+        curRevDetail[p.pos]=(curRevDetail[p.pos]||0)+contrib;
+      });
+    }
+    // GO通過ボーナス：1周で必ず1回GOを通過するため+200万
+    const goBonus=200;
+    curRev+=goBonus;
+    let curBuild=0;
+    myProps.forEach(p=>{if(BUILD_COST[p.cat]) curBuild+=BUILD_COST[p.cat]*getPropLevel(i,p.pos);});
+    const {varCost:curVar,varDetail}=calcVarCost(i,positions,owned,null);
+    const curMinCash=curBuild+curVar-curRev;
+
+    // 建設ロードマップ：0〜ホテルの各レベルで試算
+    const colorOwnedProps=myProps.filter(p=>BUILD_COST[p.cat]);
+    const roadmap=[];
+    for(let hl=0;hl<=5;hl++){
+      const buildCost=calcBuildCostAtLevel(colorOwnedProps,hl);
+      const {rev}=calcRevAtLevel(i,positions,myProps,hl);
+      const needed=buildCost+curVar-rev; // 必要初期資金
+      const canBuild=cash>=buildCost;    // 建設費が払えるか
+      const isSafe=cash>=needed;         // 必要初期資金を満たすか
+      roadmap.push({hl,buildCost,rev,needed,canBuild,isSafe});
+    }
+
+    // 物件別期待収入テーブル
+    let propRows='';
+    myProps.forEach(p=>{
+      const val=curRevDetail[p.pos]||0;
+      const rent=getRent(p,i);
+      const hl=getPropLevel(i,p.pos);
+      const hlLabel=(p.cat!=='駅'&&!p.isUtility)?HOUSE_LABELS[hl]:'—';
+      const buildC=BUILD_COST[p.cat]?BUILD_COST[p.cat]*hl:0;
+      const col=CAT_COLOR[p.cat]||'#999';
+      propRows+=`<tr>
+        <td><span class="dot" style="background:${col}"></span>${p.name}</td>
+        <td>${p.pos}</td>
+        <td style="color:#888;">${hlLabel}</td>
+        <td>${buildC>0?buildC+'万':'—'}</td>
+        <td>${rent}万</td>
+        <td class="gc" style="font-weight:600;">${val.toFixed(2)}万</td>
+      </tr>`;
+    });
+    if(!propRows) propRows=`<tr><td colspan="6" style="color:#bbb;text-align:center;padding:12px;">物件が選択されていません</td></tr>`;
+
+    // 変動費内訳（物件色のみ・所有者色は使わない）
+    varDetail.sort((a,b)=>b.cost-a.cost);
+    let vcRows='';
+    varDetail.forEach(v=>{
+      const col=CAT_COLOR[v.cat]||'#999';
+      const barW=Math.round(v.prob*50);
+      vcRows+=`<tr>
+        <td><span class="dot" style="background:${col}"></span>${v.name}</td>
+        <td>${v.pos}</td>
+        <td><span class="prob-bar"><span class="prob-fill" style="width:${barW}px"></span></span>${(v.prob*100).toFixed(1)}%</td>
+        <td>${v.rent}万</td>
+        <td class="rc" style="font-weight:600;">${v.cost.toFixed(2)}万</td>
+      </tr>`;
+    });
+    if(!vcRows) vcRows=`<tr><td colspan="5" style="color:#bbb;text-align:center;padding:12px;">該当なし</td></tr>`;
+
+    // 建設ロードマップテーブル
+    // 「建てられる中で最も多い軒数」をベストとしてハイライト
+    let bestHL=-1;
+    for(let hl=5;hl>=0;hl--){
+      if(roadmap[hl].canBuild){bestHL=hl;break;}
+    }
+    let roadRows='';
+    roadmap.forEach(r=>{
+      const isBest=r.hl===bestHL;
+      const canBuildMark=r.canBuild?'✓':'✗';
+      const canBuildColor=r.canBuild?'gc':'rc';
+      const safeMark=r.isSafe?'✓ 安全':'✗ 不足';
+      const safeColor=r.isSafe?'gc':'rc';
+      const surplus=cash-r.needed;
+      roadRows+=`<tr${isBest?' class="best-row"':''}>
+        <td style="font-weight:${isBest?600:400};">${HOUSE_LABELS[r.hl]}${isBest?' ★':''}</td>
+        <td>${r.buildCost>0?r.buildCost+'万':'—'}</td>
+        <td class="${canBuildColor}" style="font-weight:500;">${canBuildMark} ${r.canBuild?'払える':'払えない'}</td>
+        <td class="gc">${r.rev.toFixed(1)}万</td>
+        <td>${r.needed.toFixed(0)}万</td>
+        <td class="${safeColor}" style="font-weight:500;">${safeMark}</td>
+        <td class="${surplus>=0?'gc':'rc'}">${surplus>=0?'+':''}${surplus.toFixed(0)}万</td>
+      </tr>`;
+    });
+
+    // ── 先行収益期待値：他プレイヤーが現在位置から1手(2〜12マス)で自分の物件に止まれる期待値
+    let earlyRev = 0;
+    const earlyRevDetail = [];
+    for(let j=0;j<numP;j++){
+      if(j===i) continue;
+      myProps.forEach(p=>{
+        const dist=((p.pos-positions[j]-1+40)%40)+1;
+        const prob1=(dist>=2&&dist<=12)?DICE[dist]:0;
+        if(prob1<0.00001) return;
+        const r=getRent(p,i);
+        earlyRev += prob1 * r;
+        earlyRevDetail.push({pname:p.name,cat:p.cat,prob:prob1,rent:r,val:prob1*r,from:j});
+      });
+    }
+    // ── 先行経費期待値：自分が現在位置から1手(2〜12マス)で相手の物件・税に止まれる期待値
+    let earlyCost = 0;
+    const earlyCostDetail = [];
+    for(let j=0;j<numP;j++){
+      if(j===i) continue;
+      owned[j].forEach(p=>{
+        const dist=((p.pos-positions[i]-1+40)%40)+1;
+        const prob1=(dist>=2&&dist<=12)?DICE[dist]:0;
+        if(prob1<0.00001) return;
+        const r=getRent(p,j);
+        earlyCost += prob1 * r;
+        earlyCostDetail.push({pname:p.name,cat:p.cat,prob:prob1,rent:r,cost:prob1*r});
+      });
+    }
+    TAX.forEach(t=>{
+      const dist=((t.pos-positions[i]-1+40)%40)+1;
+      const prob1=(dist>=2&&dist<=12)?DICE[dist]:0;
+      if(prob1<0.00001) return;
+      earlyCost += prob1 * t.penalty;
+      earlyCostDetail.push({pname:t.name,cat:'税',prob:prob1,rent:t.penalty,cost:prob1*t.penalty});
+    });
+
+    const turnAdj = earlyRev - earlyCost;
+
+    // ── 3ライン計算 ──────────────────────────────
+    // Cライン（ギリギリ生き残りライン）
+    //   = 建設費 + max(変動費−期待収入, 0) + max(−位置調整, 0)
+    //   位置調整がプラス（有利）→ 当てにしないので0
+    //   位置調整がマイナス（不利）→ その分は確実なリスクとして上乗せ
+    const lineC_base = curBuild + Math.max(curVar - curRev, 0) + Math.max(-turnAdj, 0);
+    // Bライン（安全ライン）= 建設費 + 変動費
+    const lineB_base = curBuild + curVar;
+    // Aライン（余裕ライン）= 建設費 + 変動費 + 期待収入
+    const lineA_base = curBuild + curVar + curRev;
+    // ターン調整後ライン
+    // Cは位置調整を既に内包しているのでbaseそのまま
+    const lineC_adj = lineC_base;
+    // A/BはCと比較できるよう位置調整を適用（有利な場合のみ下げる）
+    const lineB_adj = Math.max(lineB_base - Math.max(turnAdj, 0), lineC_base);
+    const lineA_adj = Math.max(lineA_base - Math.max(turnAdj, 0), lineC_base);
+
+    const cashFlow = curRev - curVar;
+    const cfPos = cashFlow >= 0;
+
+    function lineRow(label, line, color, desc){
+      const ok = cash >= line;
+      const bgCol = ok ? (color==='#1a7a50'?'#f0faf5':color==='#c79a00'?'#fffbf0':'#fef9f0') : '#fdecea';
+      return `<div style="padding:10px 14px;border-bottom:0.5px solid #f0ede5;background:${bgCol};">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+          <div>
+            <span style="font-size:13px;font-weight:600;color:${color};">${label}</span>
+            <div style="font-size:11px;color:#888;margin-top:2px;">${desc}</div>
+          </div>
+          <div style="text-align:right;flex-shrink:0;">
+            <div style="font-size:16px;font-weight:600;color:#1a1a1a;">${line.toFixed(0)}万</div>
+            <div style="font-size:12px;font-weight:600;color:${ok?color:'#c0392b'};">${ok?'✓ 達成':'✗ あと'+(line-cash).toFixed(0)+'万'}</div>
+          </div>
+        </div>
+      </div>`;
+    }
+
+    // ── 物件別アドバイス計算
+    // 累積建設費（チェックボックスで選んだ物件全体）
+    let cumulativeBuild = 0;
+    const propAdvice = [];
+    myProps.forEach(p=>{
+      if(!BUILD_COST[p.cat]) return;
+      const curHL = getPropLevel(i, p.pos);
+      const curR = getRent(p, i);
+      const maxHL = 5;
+      cumulativeBuild += BUILD_COST[p.cat] * curHL;
+
+      let revCur=0;
+      for(let j=0;j<numP;j++){
+        if(j===i) continue;
+        revCur += probHitInLap(positions[j],p.pos)*curR;
+      }
+      let revNext=0, rentNext=0;
+      if(curHL < maxHL){
+        rentNext = getRentByLevel(p,i,curHL+1);
+        for(let j=0;j<numP;j++){
+          if(j===i) continue;
+          revNext += probHitInLap(positions[j],p.pos)*rentNext;
+        }
+      }
+      const buildPerLevel = BUILD_COST[p.cat];
+      const revGain = revNext - revCur;
+      const roi = buildPerLevel > 0 ? revGain / buildPerLevel : 0;
+      const payback = revGain > 0 ? buildPerLevel / revGain : Infinity;
+      // 追加建設（+1軒）が可能かどうか
+      const canBuildNext = cash >= curBuild + buildPerLevel;
+
+      let advice='', adviceColor='#888';
+      if(curHL >= maxHL){
+        advice='ホテル済み（最大）'; adviceColor='#888';
+      } else if(!canBuildNext){
+        advice='💸 資金不足で+1軒不可'; adviceColor='#c0392b';
+      } else if(roi >= 0.15){
+        advice='★ 強く推奨：ROI高い'; adviceColor='#1a7a50';
+      } else if(roi >= 0.08){
+        advice='◎ 推奨：回収見込みあり'; adviceColor='#1a7a50';
+      } else if(roi >= 0.04){
+        advice='△ 様子見：ROIはやや低め'; adviceColor='#c79a00';
+      } else {
+        advice='✗ 非推奨：回収に時間がかかる'; adviceColor='#c0392b';
+      }
+      propAdvice.push({p, curHL, curR, rentNext, buildPerLevel, revCur, revNext, revGain, roi, payback, advice, adviceColor, canBuildNext});
+    });
+
+
+    html+=`
+    <div class="card">
+      <div class="player-head">
+        <span class="pdot" style="background:${c}"></span>
+        <span class="player-title">${PNAMES[i]}</span>
+        <span class="pos-badge">位置 ${positions[i]}マス目</span>
+        <span class="pos-badge">手持ち ${cash}万</span>
+        ${myProps.length>0?`<span class="pos-badge">物件 ${myProps.length}件</span>`:''}
+      </div>
+
+      <!-- 基本指標 -->
+      <div class="g3" style="margin-bottom:10px;">
+        <div class="mcard"><div class="ml">建設費（固定費）</div><div class="mv rc">${curBuild.toFixed(0)}万</div></div>
+        <div class="mcard"><div class="ml">変動費（期待値・1周）</div><div class="mv rc">${curVar.toFixed(1)}万</div></div>
+        <div class="mcard"><div class="ml">期待収入（1周・GO200万含む）</div><div class="mv gc">${curRev.toFixed(1)}万</div></div>
+      </div>
+
+      <!-- 建設費チェック（最優先） -->
+      ${curBuild > 0 ? `
+      <div style="border-radius:10px;overflow:hidden;margin-bottom:12px;border:2px solid ${cash>=curBuild?'#1a7a50':'#c0392b'};">
+        <div style="background:${cash>=curBuild?'#1a7a50':'#c0392b'};padding:8px 14px;display:flex;align-items:center;justify-content:space-between;">
+          <span style="color:#fff;font-weight:600;font-size:13px;">${cash>=curBuild?'✓ 建設費チェック：OK':'✗ 建設費チェック：資金不足'}</span>
+          <span style="color:#fff;font-size:12px;">手持ち ${cash}万　→　建設後の残り <strong>${(cash-curBuild).toFixed(0)}万</strong></span>
+        </div>
+        ${cash < curBuild ? `
+        <div style="background:#fdecea;padding:10px 14px;font-size:12px;color:#c0392b;">
+          建設費 <strong>${curBuild}万</strong> に対して手持ちが <strong>${cash}万</strong> → <strong>${(curBuild-cash).toFixed(0)}万 不足。</strong>
+          建設状況を下げるか、交渉でキャッシュを上乗せできるか検討してください。
+        </div>` : `
+        <div style="background:#f0faf5;padding:8px 14px;font-size:12px;color:#555;">
+          建設費 <strong style="color:#1a7a50;">${curBuild}万</strong> を支払える手持ちがあります。（建設後の残り：<strong style="color:#1a7a50;">${(cash-curBuild).toFixed(0)}万</strong>）
+        </div>`}
+      </div>` : ''}
+
+      <!-- 1周キャッシュフロー -->
+      <div class="mcard" style="margin-bottom:12px;border:1.5px solid ${cfPos?'#1a7a50':'#c0392b'};">
+        <div class="ml">1周キャッシュフロー（期待収入 − 変動費）</div>
+        <div class="mv ${cfPos?'gc':'rc'}">${cfPos?'+':''}${cashFlow.toFixed(1)}万　<span style="font-size:13px;font-weight:400;">${cfPos?'▶ 毎周プラス成長見込み':'▶ 毎周マイナス — 建設数を見直して'}</span></div>
+      </div>
+
+      <!-- ターン調整 -->
+      <div style="background:#f9f8f5;border:0.5px solid #e0ddd5;border-radius:8px;padding:10px 14px;margin-bottom:12px;">
+        <div style="font-weight:600;color:#444;margin-bottom:6px;">🎲 位置ベース調整（現在位置から1手で届く範囲）</div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:12px;">
+          <span><span style="color:#1a7a50;font-weight:600;">先行収益期待値 +${earlyRev.toFixed(1)}万</span>　<span style="color:#aaa;">他プレイヤーが1手で自分の物件に止まる期待値</span></span>
+          <span><span style="color:#c0392b;font-weight:600;">先行経費期待値 −${earlyCost.toFixed(1)}万</span>　<span style="color:#aaa;">自分が1手で相手の物件に止まる期待値</span></span>
+          <span style="font-weight:600;color:${turnAdj>=0?'#1a7a50':'#c0392b'};">調整額 ${turnAdj>=0?'+':''}${turnAdj.toFixed(1)}万 → ライン${turnAdj>=0?'が下がる（有利）':'が上がる（不利）'}</span>
+        </div>
+      </div>
+
+      <!-- 3ライン -->
+      <div style="font-size:12px;font-weight:600;color:#444;margin-bottom:8px;">📊 必要資本金ライン　<span style="font-weight:400;color:#1565c0;">手持ち ${cash}万</span></div>
+      <div style="border:0.5px solid #e0ddd5;border-radius:10px;overflow:hidden;margin-bottom:14px;">
+        ${lineRow('Aライン（余裕ライン）', lineA_adj, '#1a7a50', `建設費＋変動費＋期待収入 − 位置調整(${turnAdj>=0?'+':''}${turnAdj.toFixed(0)}万)　最悪の1周でも期待収入分が残る`)}
+        ${lineRow('Bライン（安全ライン）', lineB_adj, '#c79a00', `建設費＋変動費 − 位置調整　最悪の1周（収入ゼロ）でも変動費を払えて生き残れる`)}
+        ${lineRow('Cライン（ギリギリ生き残りライン）', lineC_adj, '#c0392b',
+          `建設費＋max(変動費−期待収入, 0)＋max(−位置調整, 0)　有利な位置は当てにせず、不利な位置はリスクとして上乗せ`
+        )}
+      </div>
+
+      <!-- 物件別建設アドバイス -->
+      ${propAdvice.length>0?`
+      <p style="font-size:12px;font-weight:600;color:#444;margin:0 0 6px;">🏠 物件別 建設アドバイス</p>
+      <p style="font-size:11px;color:#aaa;margin:0 0 8px;">ROI = 建設費1万あたりの期待収入増。回収周数 = 建設費を何周で回収できるか。</p>
+      <div class="scroll-x" style="margin-bottom:16px;">
+        <table class="build-table">
+          <thead><tr>
+            <th>物件名</th><th>現状</th><th>次の1軒</th><th>建設費</th><th>収入増/周</th><th>ROI</th><th>回収周数</th><th>アドバイス</th>
+          </tr></thead>
+          <tbody>${propAdvice.map(a=>{
+            const col=CAT_COLOR[a.p.cat]||'#999';
+            const roiStr=a.curHL>=5?'—':(a.roi*100).toFixed(1)+'%';
+            const pbStr=a.payback===Infinity?'—':a.payback.toFixed(1)+'周';
+            const nextRentStr=a.curHL>=5?'—':`${a.p.rents[Math.min(a.curHL+1,5)]}万`;
+            return `<tr>
+              <td><span class="dot" style="background:${col}"></span>${a.p.name}</td>
+              <td style="color:#888;">${HOUSE_LABELS[a.curHL]}（家賃${a.curR}万）</td>
+              <td>${a.curHL>=5?'最大':'→ '+HOUSE_LABELS[Math.min(a.curHL+1,5)]+'（'+nextRentStr+'）'}</td>
+              <td>${a.curHL>=5?'—':a.buildPerLevel+'万'}</td>
+              <td>${a.curHL>=5?'—':(a.revGain>0?'+':'')+a.revGain.toFixed(2)+'万'}</td>
+              <td style="font-weight:600;">${roiStr}</td>
+              <td>${pbStr}</td>
+              <td style="font-weight:600;color:${a.adviceColor};">${a.advice}</td>
+            </tr>`;
+          }).join('')}</tbody>
+        </table>
+      </div>`:''}
+
+      <!-- 物件別期待収入 -->
+      <p style="font-size:11px;font-weight:600;color:#aaa;margin:0 0 8px;letter-spacing:.05em;">物件別 期待収入（現在の建設状況）</p>
+      <div class="scroll-x" style="margin-bottom:14px;">
+        <table>
+          <thead><tr><th>物件名</th><th>マス</th><th>建設状況</th><th>建設費</th><th>家賃</th><th>期待収入</th></tr></thead>
+          <tbody>${propRows}</tbody>
+        </table>
+      </div>
+
+      <!-- 変動費内訳 -->
+      <p style="font-size:11px;font-weight:600;color:#aaa;margin:0 0 8px;letter-spacing:.05em;">変動費内訳 — 踏む可能性のある相手物件・税</p>
+      <div class="scroll-x">
+        <table>
+          <thead><tr><th>物件名</th><th>マス</th><th>踏む確率</th><th>家賃</th><th>期待コスト</th></tr></thead>
+          <tbody>${vcRows}</tbody>
+        </table>
+      </div>
+    </div>`;
+
+    // 比較ビュー用データを収集
+    summary.push({
+      i, c: PCOLORS[i], name: PNAMES[i],
+      cash, curBuild, curRev, curVar,
+      cashAfterBuild: cash - curBuild,
+      cashFlow,
+      lineA: lineA_adj, lineB: lineB_adj, lineC: lineC_adj,
+      canBuild: cash >= curBuild,
+      earlyRev, earlyCost, turnAdj,
+    });
+  }
+
+  // ── 全プレイヤー比較ビュー（最上部に表示）
+  let compareHtml=`
+  <div class="card" style="margin-bottom:16px;">
+    <p style="font-size:14px;font-weight:600;margin-bottom:12px;">👥 全プレイヤー比較</p>
+    <div class="scroll-x">
+    <table>
+      <thead>
+        <tr>
+          <th>プレイヤー</th>
+          <th>手持ち</th>
+          <th>建設費</th>
+          <th>建設後残り</th>
+          <th>期待収入/周</th>
+          <th>変動費/周</th>
+          <th>CF/周</th>
+          <th style="color:#1a7a50;">Aライン</th>
+          <th style="color:#c79a00;">Bライン</th>
+          <th style="color:#c0392b;">Cライン</th>
+          <th>判定</th>
+        </tr>
+      </thead>
+      <tbody>`;
+
+  summary.forEach(s=>{
+    const afterBuild=s.cashAfterBuild;
+    const cfColor=s.cashFlow>=0?'#1a7a50':'#c0392b';
+    const afterColor=afterBuild>=0?'#1a7a50':'#c0392b';
+
+    // どのラインにいるか判定
+    let status='', statusBg='';
+    if(!s.canBuild){
+      status='建設不可'; statusBg='#fdecea';
+    } else if(s.cash >= s.lineA){
+      status='✓ A達成'; statusBg='#e8f5ee';
+    } else if(s.cash >= s.lineB){
+      status='B達成'; statusBg='#fffbf0';
+    } else if(s.cash >= s.lineC){
+      status='C達成（ギリギリ）'; statusBg='#fff8f0';
+    } else {
+      status='✗ C未達（危険）'; statusBg='#fdecea';
+    }
+
+    compareHtml+=`<tr style="background:${statusBg};">
+      <td>
+        <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${s.c};margin-right:6px;vertical-align:middle;"></span>
+        <strong>${s.name}</strong>
+      </td>
+      <td style="font-weight:500;">${s.cash}万</td>
+      <td style="color:#c0392b;">${s.curBuild>0?s.curBuild+'万':'—'}</td>
+      <td style="font-weight:600;color:${afterColor};">${s.curBuild>0?(afterBuild>=0?'+':'')+afterBuild.toFixed(0)+'万':'—'}</td>
+      <td style="color:#1a7a50;">${s.curRev.toFixed(1)}万</td>
+      <td style="color:#c0392b;">${s.curVar.toFixed(1)}万</td>
+      <td style="font-weight:600;color:${cfColor};">${s.cashFlow>=0?'+':''}${s.cashFlow.toFixed(1)}万</td>
+      <td>${s.lineA.toFixed(0)}万</td>
+      <td>${s.lineB.toFixed(0)}万</td>
+      <td>${s.lineC.toFixed(0)}万</td>
+      <td style="font-weight:600;font-size:12px;">${status}</td>
+    </tr>`;
+  });
+
+  compareHtml+=`</tbody></table></div>
+
+    <!-- 交渉ヒント -->
+    <div style="margin-top:12px;padding:10px 14px;background:#f9f8f5;border-radius:8px;font-size:12px;color:#555;">
+      <strong>💡 交渉のヒント：</strong>
+      ${(()=>{
+        const weak=summary.filter(s=>s.cash<s.lineC||!s.canBuild).map(s=>s.name);
+        const strong=summary.filter(s=>s.cash>=s.lineA).map(s=>s.name);
+        const hints=[];
+        if(weak.length) hints.push(`<span style="color:#c0392b;font-weight:600;">${weak.join('・')}</span> はCライン未達 — キャッシュ獲得を優先、物件を渡す交渉は慎重に`);
+        if(strong.length) hints.push(`<span style="color:#1a7a50;font-weight:600;">${strong.join('・')}</span> はAライン達成 — 強気に交渉できる余裕あり`);
+        if(!hints.length) hints.push('全員がB〜Cライン圏内 — 拮抗した状況');
+        return hints.join('　／　');
+      })()}
+    </div>
+  </div>`;
+
+  res.innerHTML = compareHtml + html;
+  }catch(e){
+    document.getElementById('results').innerHTML=
+      `<div class="card" style="color:#c0392b;"><strong>エラーが発生しました：</strong><br>${e.message}</div>`;
+  }
+}
+
+initPlayers();
+</script>
+</body>
+</html>
